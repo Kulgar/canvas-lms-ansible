@@ -1,0 +1,17 @@
+# don't include secrets and servers IPs
+inventory
+**/secrets.yml
+
+
+# don't include retries
+*.retry
+
+# Don't include ssh keys
+playbooks/templates/ssh_keys/*
+
+# Don't include certificates
+playbooks/templates/certs/*
+
+# Don't include configuration files
+playbooks/templates/config/*.yml
+playbooks/templates/nginx/sites-enabled/*

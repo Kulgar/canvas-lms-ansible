@@ -1,0 +1,138 @@
+env PATH;
+user {{ nginx_user }};
+worker_processes {{ nginx_worker_processes }};
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+# Number of file descriptors used for Nginx. This is set in the OS with 'ulimit -n 200000'
+# or using /etc/security/limits.conf
+worker_rlimit_nofile 200000;
+
+events {
+  worker_connections {{ nginx_worker_connections }};
+
+  # essential for linux, optmized to serve many clients with each thread
+  use epoll;
+
+  # Accept as many connections as possible, after nginx gets notification about a new connection.
+  # May flood worker_connections, if that option is set too low.
+  multi_accept on;
+}
+
+http {
+  ##
+  # Basic Settings
+  ##
+
+  # Sendfile copies data between one FD and other from within the kernel.
+  # More efficient than read() + write(), since the requires transferring data to and from the user space.
+  sendfile on;
+
+  # Tcp_nopush causes nginx to attempt to send its HTTP response head in one packet,
+  # instead of using partial frames. This is useful for prepending headers before calling sendfile,
+  # or for throughput optimization.
+  tcp_nopush on;
+
+  # don't buffer data-sends (disable Nagle algorithm). Good for sending frequent small bursts of data in real time.
+  tcp_nodelay on;
+
+  # Timeout for keep-alive connections. Server will close connections after this time.
+  keepalive_timeout {{ nginx_keepalive_timeout }};
+  types_hash_max_size 2048;
+
+  # server_tokens off;
+  # server_names_hash_bucket_size 64;
+  # server_name_in_redirect off;
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  # Caches information about open FDs, freqently accessed files.
+  # Changing this setting, in my environment, brought performance up from 560k req/sec, to 904k req/sec.
+  # I recommend using some varient of these options, though not the specific values listed below.
+  open_file_cache max=200000 inactive=20s;
+  open_file_cache_valid 30s;
+  open_file_cache_min_uses 2;
+  open_file_cache_errors on;
+
+  # Number of requests a client can make over the keep-alive connection. This is set high for testing.
+  # keepalive_requests 100000;
+
+  # allow the server to close the connection after a client stops responding. Frees up socket-associated memory.
+  reset_timedout_connection on;
+
+  # send the client a "request timed out" if the body is not loaded by this time. Default 60.
+  client_body_timeout 600;
+  client_body_buffer_size 64k;
+  client_body_temp_path /var/spool/nginx 1 2;
+  client_header_buffer_size 8k;
+  client_header_timeout 600;
+  client_max_body_size 2G;
+
+  # If the client stops reading data, free up the stale client connection after this much time. Default 60.
+  send_timeout 600;
+
+  ##
+  # SSL Settings
+  ##
+
+  ssl_protocols TLSv1.1 TLSv1.2; # Dropping SSLv3, ref: POODLE
+  ssl_prefer_server_ciphers on;
+  ssl_session_cache   shared:SSL:10m;
+  ssl_session_timeout 10m;
+
+  ##
+  # Logging Settings
+  ##
+
+  #access_log /var/log/nginx/access.log;
+  error_log /var/log/nginx/error.log crit;
+
+  # Buffer log writes to speed up IO, or disable them altogether
+  #access_log /var/log/nginx/access.log main buffer=16k;
+  access_log off;
+  log_not_found off;
+
+  ##
+  # Gzip Settings
+  ##
+
+  # Compression. Reduces the amount of data that needs to be transferred over the network
+  gzip on;
+  gzip_buffers 32 8k;
+  gzip_comp_level 4;
+  gzip_min_length 0; #10240;
+  gzip_types text/plain text/css application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+  gzip_disable "MSIE [1-6]\.(?!.*SV1)";
+  gzip_http_version 1.1;
+  gzip_proxied any;
+  gzip_vary on;
+
+  ##
+  # Virtual Host Configs
+  ##
+
+  include /etc/nginx/conf.d/*.conf;
+  include /etc/nginx/sites-enabled/*;
+}
+
+#mail {
+#       # See sample authentication script at:
+#       # http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+#
+#       # auth_http localhost/auth.php;
+#       # pop3_capabilities "TOP" "USER";
+#       # imap_capabilities "IMAP4rev1" "UIDPLUS";
+#
+#       server {
+#               listen     localhost:110;
+#               protocol   pop3;
+#               proxy      on;
+#       }
+#
+#       server {
+#               listen     localhost:143;
+#               protocol   imap;
+#               proxy      on;
+#       }
+#}

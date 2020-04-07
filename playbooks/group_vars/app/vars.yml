@@ -1,0 +1,50 @@
+# group_vars/app
+#   shared settings for app group
+#
+# This software is public domain.
+#
+
+###
+# NodeJS Configuration
+###
+
+# Canvas LMS doesn't support node > v10
+nodejs_version: "10.x"
+
+###
+# Ruby configurations
+###
+
+# These scripts use rvm to manage different versions of rubies
+# RVM is installed at the user level, for app_service_account user
+# https://rvm.io/
+rvm_gpg_key: "409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB"
+
+# Ruby environment configs
+ruby_version: 2.5
+base_gems:
+  - name: bundler
+    version: 2.1.4
+
+###
+# Canvas APP configurations
+###
+
+# App domains are set in prod/staging files
+# Where you want to deploy Canvas LMS?
+app_dir: /opt/apps/canvas
+
+# derived variables
+#  you probably do not need to customize these, it's to prepare capistrano deployment
+conf_dir: "{{ app_dir }}/shared/config"
+
+###
+# Nginx configurations
+###
+
+# Some common nginx configurations
+nginx_worker_processes: "{{ ansible_processor_vcpus | default(ansible_processor_count) }}"
+nginx_worker_connections: "768"
+nginx_keepalive_timeout: "65"
+
+nginx_user: "www-data"

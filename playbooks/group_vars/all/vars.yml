@@ -1,0 +1,20 @@
+# group_vars/all
+#   settings shared across all groups
+#
+# This software is public domain.
+#
+
+###
+# Servers configurations
+###
+# Set locale of server
+locale: en_US.UTF-8
+
+# SSH configurations
+# Set ssh port to whatever you want (but don't use a port already used by another service). It is always better to change it to sth different than 22.
+ubuntu_common_ssh_port: 22
+sshd_config: /etc/ssh/sshd_config
+
+# Set to true to setup ufw
+# Don't forget to set 'allowed_ips' in secrets.yml
+setup_ufw: false

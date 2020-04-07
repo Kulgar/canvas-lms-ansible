@@ -1,0 +1,12 @@
+# group_vars/db
+#   shared settings for db group
+#
+# This software is public domain.
+#
+# No secrets here, we expect DB connexions to be environment dependant
+
+# set at least one IP in db group in inventory file to install postgreSQL on a db server
+postgres_version: 9.6
+postgres_etc_dir: "/etc/postgresql/{{ postgres_version }}/main"
+postgres_conf: "{{ postgres_etc_dir }}/postgresql.conf"
+postgres_hba_conf: "{{ postgres_etc_dir }}/pg_hba.conf"

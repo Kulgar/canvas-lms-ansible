@@ -1,0 +1,75 @@
+# 6_prepare_deploy.yml
+#   Setup deployment environment
+#
+# Details:
+# - Create needed folders
+# - Install packages required for deployment
+# - Copy configuration templates
+
+- name: Prepare server to deploy app using Capistrano
+  hosts: app
+  become: yes
+  tasks:
+    - name: "Create apps folder in {{ app_dir }} directory"
+      tags:
+        - update-app
+      file: "state=directory dest={{ app_dir }} owner={{ app_service_account }}"
+
+    - name: "Create config folder in {{ conf_dir }} directory"
+      tags:
+        - update-app
+      file: "state=directory dest={{ conf_dir }} owner={{ app_service_account }}"
+
+    - name: Install required deploy packages
+      tags:
+        - update-packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+          - git-core
+          - python-pygments
+
+    - name: Deploy configuration
+      tags:
+        - update-app
+        - quick-config
+      template:
+        src: "templates/config/{{ item }}.yml"
+        dest: "{{ conf_dir }}/{{ item }}.yml"
+        mode: 0400
+        owner: "{{ app_service_account }}"
+        group: "{{ app_service_account }}"
+      with_items:
+        - amazon_s3
+        - cache_store
+        - database
+        - delayed_jobs
+        - domain
+        - dynamic_settings
+        - external_migration
+        - file_store
+        # - incoming_mail # feel free to activate this one if needed
+        - logging
+        - outgoing_mail
+        - redis
+        - security
+        # feel free to add any other yml files here from Canvas LMS: https://github.com/instructure/canvas-lms/tree/master/config
+        # We added all the default configuration files: https://github.com/instructure/canvas-lms/wiki/Production-Start#canvas-default-configuration
+        # plus some others
+
+    # Gemfile.lock is git-ignored by Canvas LMS, so, several solutions here:
+    # 1. Remove the Gemfile.lock from gitignore in you Canvas LMS app code
+    # 2. Don't use any deployment flags when you run bundle install on the server, this is actually what Canvas LMS is doing in the production start guide: https://github.com/instructure/canvas-lms/wiki/Production-Start#bundler-and-canvas-dependencies
+    # 3. Use Capistrano to symlink a Gemfile.lock from the shared folder and deploy that Gemfile.lock using ansible and templates and the bellow task.
+    # - name: Create Gemfile.lock
+    #   tags:
+    #     - update-app
+    #     - quick-config
+    #   template:
+    #     src: "templates/config/Gemfile.lock"
+    #     dest: "{{ app_dir }}/shared/Gemfile.lock"
+    #     owner: "{{ app_service_account }}"
+    #     group: "{{ app_service_account }}"

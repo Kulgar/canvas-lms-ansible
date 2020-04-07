@@ -1,0 +1,22 @@
+production:
+  adapter: postgresql
+  encoding: utf8
+  database: "{{ app_db.production.name }}"
+  host: "{{ app_db.production.host }}"
+  username: "{{ app_db.production.user }}"
+  password: "{{ app_db.production.password }}"
+  timeout: 5000
+  pool: 40
+  reaping_frequency: 10
+
+staging:
+  adapter: postgresql
+  encoding: utf8
+  database: "{{ app_db.staging.name }}"
+  host: "{{ app_db.staging.host }}"
+  username: "{{ app_db.staging.user }}"
+  password: "{{ app_db.staging.password }}"
+  timeout: 5000
+  pool: 40
+  reaping_frequency: 10
+

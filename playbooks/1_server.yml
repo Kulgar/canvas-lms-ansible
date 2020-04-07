@@ -1,0 +1,121 @@
+# 1_server.yml
+#   Prepare server to play ansible
+#   Run once (first time) as a root/sudoer user
+#
+# Details:
+# (first run as root if you have no sudoer user)
+# - Install python
+# - Configure locale
+# - Create admin account, if info are set in variables
+# - Add ssh key and configure admin account (passwordless)
+# - Disallow password login
+# - Disallow root login
+
+- name: Prepare server to play ansible
+  hosts: all
+  become: yes
+
+  # Python installation depends on your OS version
+  # Please don't forget to add ansible_distribution_major_version if you are running Ubuntu 18+ in your inventory.
+  gather_facts: no
+  pre_tasks:
+    - name: 'Install python'
+      raw: apt -y install python
+
+    - name: 'Install minimal python'
+      raw: apt -y install python3-minimal
+      when: ansible_distribution_major_version is not undefined and ansible_distribution_major_version >= 18
+
+  tasks:
+    - debug:
+        msg: "System {{ inventory_hostname }} has gateway {{ ansible_default_ipv4.gateway }}"
+      when: ansible_default_ipv4.gateway is not undefined
+
+    - name: Install UTF-8 locale
+      locale_gen:
+        name: "{{locale}}"
+        state: present
+
+    - name: "Set {{locale}} as locale"
+      command: "/usr/sbin/update-locale LANG={{locale}} LC_ALL={{locale}}"
+
+    - name: Create admin user account
+      user:
+        name: "{{ server_admin_account }}"
+        group: sudo
+        password: "{{ server_admin_password }}"
+        state: present
+        shell: /bin/bash
+      when: create_admin_account
+
+    - name: Add ssh key to admin user account
+      authorized_key:
+        user: "{{ server_admin_account }}"
+        state: present
+        key: "{{ lookup('file', './templates/ssh_keys/' + item) }}"
+      with_items: "{{ admin_ssh_keys }}"
+      when: create_admin_account
+
+    - name: Create passwordless file in sudoers.d
+      copy:
+        content: ''
+        dest: /etc/sudoers.d/passwordless
+        mode: 0440
+        force: no
+        owner: root
+        group: root
+      when: create_admin_account
+
+    - name: Make "{{ server_admin_account }}" a passwordless sudoer
+      lineinfile:
+        dest: /etc/sudoers.d/passwordless
+        state: present
+        regexp: "^{{ server_admin_account }}"
+        line: "{{ server_admin_account }} ALL=(ALL) NOPASSWD:ALL"
+        validate: 'visudo -cf %s'
+      when: create_admin_account
+
+- name: Modify sshd_config on remote machine
+
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Change ssh port
+      lineinfile: dest="{{ sshd_config }}"
+                  regexp="^Port\s"
+                  line="Port {{ ubuntu_common_ssh_port }}"
+                  state=present
+      notify: Restart ssh
+
+    - name: Disallow root SSH access
+      lineinfile: dest="{{ sshd_config }}"
+                  regexp="^PermitRootLogin"
+                  line="PermitRootLogin no"
+                  state=present
+      notify: Restart ssh
+
+    - name: Disallow password authentication
+      lineinfile: dest=/etc/ssh/sshd_config
+                  regexp="^PasswordAuthentication"
+                  line="PasswordAuthentication no"
+                  state=present
+      notify: Restart ssh
+
+    - name: Disallow Challenge response auths
+      lineinfile: dest=/etc/ssh/sshd_config
+                  regexp="^ChallengeResponseAuthentication"
+                  line="ChallengeResponseAuthentication no"
+                  state=present
+      notify: Restart ssh
+
+    # Uncomment if needed
+    # - name: unset UsePAM yes
+    #   lineinfile: dest="{{ sshdconfig }}" regexp="^[#]*UsePAM yes" line="#UsePAM yes" state=present
+
+    # - name: set UsePAM no
+    #   lineinfile: dest="{{ sshdconfig }}" insertafter="^#UsePAM yes" line="UsePAM no" state=present
+
+  handlers:
+    - name: Restart ssh
+      service: name=ssh state=restarted

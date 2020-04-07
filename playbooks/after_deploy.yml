@@ -1,0 +1,65 @@
+# after_deploy.yml
+#   Setup delayed jobs
+#
+# Details:
+# - Activate delayed jobs daemon
+# - Install QTI migration tools
+
+###
+# Delayed job activation
+###
+
+- name: Activate delayed jobs
+  hosts: app
+  become: yes
+
+  tasks:
+    - name: Create delayed job systemd service
+      template:
+        src: templates/canvas.service.j2
+        dest: /etc/systemd/system/canvas_init.service
+
+    - name: Activate delayed job service
+      systemd:
+        name: canvas
+        enabled: yes
+        daemon_reload: yes
+        state: restarted
+
+# https://github.com/instructure/QTIMigrationTool/wiki
+- name: Add QTI Migration tools
+  hosts: app
+  become: yes
+
+  tasks:
+    - name: Install python-pip
+      tags:
+        - update-packages
+      apt: name={{ item }}
+      with_items:
+        - python-pip
+
+    - name: Install python lxml
+      pip:
+        name: lxml
+
+    - name: Download git repo
+      become_user: "{{app_service_account}}"
+      git:
+        repo: https://github.com/instructure/QTIMigrationTool.git
+        dest: "{{app_dir}}/current/vendor/QTIMigrationTool"
+      notify: restart delayed jobs
+
+    - name: Allow execution of QTI migration tools
+      file:
+        path: "{{app_dir}}/current/vendor/QTIMigrationTool/migrate.py"
+        mode: "+x"
+      notify: restart delayed jobs
+
+  handlers:
+    - name: restart delayed jobs
+      systemd:
+        name: canvas
+        state: restarted
+      become: true
+

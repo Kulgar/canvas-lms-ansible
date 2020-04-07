@@ -1,0 +1,65 @@
+# 3_db.yml
+#   Configure database
+#
+# Details:
+# Run this playbook only if you need to install postgresql and set a database.
+# Don't set a host in db inventory group if you don't want to run these scripts
+# - Install postgresql
+# - Create App DB User
+# - Create App DB
+#
+
+- name: Database Server Setup
+  hosts: db
+  become: yes
+  tasks:
+    - name: Install Postgresql
+      tags:
+        - update-packages
+        - update-postgres
+      apt:
+        name: "postgresql-{{ postgres_version }}"
+
+    - name: Install python libraries required to manage postgresql with Ansible
+      tags:
+        - update-packages
+        - update-postgres
+      apt: name=python-psycopg2
+
+    - name: Create App DB user
+      tags:
+        - update-dbs
+        - update-postgres
+      postgresql_user:
+        name: "{{ app_db_user }}"
+        password: "{{ app_db_password }}"
+        role_attr_flags: NOCREATEDB,NOSUPERUSER,NOCREATEROLE
+      become_user: postgres
+
+    - name: Create App databases
+      tags:
+        - update-dbs
+        - update-postgres
+      postgresql_db: name={{ item }} owner={{ app_db_user }}
+      with_items: "{{ app_db_names }}"
+      become_user: postgres
+
+    # Uncomment following lines if postgreSQL is running on a different server
+    #- name: Listen on all addresses
+    #  tags:
+    #    - update-postgres
+    #  lineinfile: dest={{ postgres_conf }} line="listen_addresses = '*'" regexp=^listen_addresses
+    #  register: postgres_conf_edit
+
+    #- name: Allow app user to connect remotely
+    #  tags:
+    #    - update-postgres
+    #  lineinfile: dest={{ postgres_hba_conf }} insertbefore="^# DO NOT DISABLE!$" line="host {{ item }} {{ app_db_user }} 192.168.100.0/24 md5"
+    #  with_items: app_db_names
+    #  register: postgres_hba_edit
+
+    #- name: Restart postgresql
+    #  tags:
+    #    - update-postgres
+    #  service: name=postgresql state=restarted
+    #  when: postgres_conf_edit|changed or postgres_hba_edit|changed

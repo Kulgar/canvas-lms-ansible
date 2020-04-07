@@ -1,0 +1,6 @@
+[submodule "playbooks/roles/ansible-redis"]
+	path = playbooks/roles/ansible-redis
+	url = git@github.com:DavidWittman/ansible-redis.git
+[submodule "playbooks/roles/rvm1-ansible"]
+	path = playbooks/roles/rvm1-ansible
+	url = git@github.com:rvm/rvm1-ansible.git

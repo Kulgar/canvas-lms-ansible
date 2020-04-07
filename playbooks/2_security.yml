@@ -1,0 +1,80 @@
+# 2_security.yml
+#   Setup standard security things to all hosts
+#
+# Details:
+# - Upgrade packages
+# - Create app/deploy user, this one is not a sudoer
+# - Install required generic packages (firewall, fail2ban...)
+# - Configure unattended upgrades
+# - Setup firewall
+#
+
+- name: Common Server Setup
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      tags:
+        - update-packages
+      apt: update_cache=yes upgrade=safe
+
+    # App user will be the user you'll use for deployments and other non-sudo stuff
+    - name: Create app user
+      tags:
+        - config-app
+      user: name={{ app_service_account }} comment="App Service Account" shell=/bin/bash
+
+    - name: "Add deploy ssh key to {{ app_service_account }} account"
+      authorized_key:
+        user: "{{ app_service_account }}"
+        state: present
+        key: "{{ lookup('file', './templates/ssh_keys/' + item) }}"
+      with_items: "{{ deploy_ssh_keys }}"
+
+    - name: Install required packages
+      tags:
+        - update-packages
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - vim
+          - fail2ban
+          - unattended-upgrades
+          - openssl
+          - htop
+          #- logwatch - if wanted: https://help.ubuntu.com/community/Logwatch
+
+    - name: Adjust APT update intervals
+      copy: src=templates/apt_periodic dest=/etc/apt/apt.conf.d/10periodic
+
+    - name: Configure unattended-upgrades
+      copy: src=templates/50unattended-upgrades dest=/etc/apt/apt.conf.d/50unattended-upgrades
+
+    - name: install setfacl support
+      become: yes
+      apt: pkg=acl
+
+    - name: Install UFW package
+      tags:
+        - update-packages
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - ufw
+      when: setup_ufw
+
+    - name: Setup ufw
+      ufw:
+        rule: limit
+        port: "{{ ubuntu_common_ssh_port }}"
+        proto: tcp
+        from_ip: "{{ item }}"
+      with_items: "{{ allowed_ips }}"
+      when: setup_ufw
+
+    - name: Setup ufw
+      ufw: state=enabled policy=deny
+      when: setup_ufw

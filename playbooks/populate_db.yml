@@ -1,0 +1,27 @@
+# populate_db.yml
+#   Setup Canvas Database
+#
+# Details:
+# - Populate Canvas Database
+
+- name: DB Setup
+  hosts: app
+  become: yes
+  become_user: "{{ app_service_account }}"
+
+  tasks:
+    - name: Populate production database
+      tags:
+        - update-app
+        - update-dbs
+      args:
+        chdir: "{{ app_dir }}/current"
+      environment:
+        CANVAS_LMS_ADMIN_EMAIL: "{{ canvas_admin_email }}"
+        CANVAS_LMS_ADMIN_PASSWORD: "{{ canvas_admin_password }}"
+        CANVAS_LMS_ACCOUNT_NAME: "{{ canvas_base_account_name }}"
+        CANVAS_LMS_STATS_COLLECTION: "{{ canvas_stats_collection }}"
+
+      shell: |
+        bash -lc 'RAILS_ENV=production bundle exec rake db:initial_setup'
+

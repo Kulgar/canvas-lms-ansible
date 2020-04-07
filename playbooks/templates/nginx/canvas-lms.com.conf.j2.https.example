@@ -1,0 +1,74 @@
+###
+# Canvas - HTTPS config
+# Use this file if you already have a certificate.
+# You also can use certbot and let's encrypt if you want to
+###
+
+# HTTP Server
+server {
+  listen 80;
+  server_name {{ canvas_domain }};
+  rewrite ^ https://{{ canvas_domain }}$request_uri? permanent;
+}
+
+# HTTPS Server
+server {
+  listen 443 ssl;
+  server_name {{ canvas_domain }};
+
+  ###
+  # SSL Configs
+  ###
+
+  ssl    on;
+  ssl_certificate      /etc/ssl/certs/{{ canvas_domain }}.crt;
+  ssl_certificate_key  /etc/ssl/private/{{ canvas_domain }}.key;
+
+  ssl_protocols  TLSv1.1 TLSv1.2;
+  #ssl_ciphers  HIGH:!aNULL:!MD5;
+  ssl_prefer_server_ciphers   on;
+  ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:ECDHE-RSA-AES128-GCM-SHA256:AES256+EECDH:DHE-RSA-AES128-GCM-SHA256:AES256+EDH:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4";
+
+  passenger_set_header HTTP_X_FORWARDED_PROTO https;
+  #passenger_set_cgi_param HTTP_X_FORWARDED_PROTO https;
+
+  ###
+  # Server configs
+  ###
+
+  error_log /var/log/nginx/{{ canvas_domain }}.error.log warn;
+
+  # IP filter:
+  #allow ip/32;
+  #allow ip/16;
+  #deny all;
+
+  ###
+  # Passenger / Rails configs
+  ###
+
+  passenger_enabled on;
+  passenger_min_instances 3;
+  # passenger_friendly_error_pages on;
+  # passenger_ruby /usr/local/rvm/gems/ruby-2.1.5/wrappers/ruby;
+
+  rails_env production; # replace with your environment (staging/production)
+
+  location / {
+    proxy_cache canvas;
+    proxy_cache_valid 301 404 1m;
+    proxy_cache_valid any 15s;
+    proxy_cache_min_uses 16;
+
+    root {{ canvas_app_dir }}/current/public;
+  }
+
+  location ^~ /assets/ {
+    gzip_static on;
+    expires max;
+    add_header Cache-Control public;
+  }
+}
+
+passenger_pre_start https://{{ canvas_domain }}/;
+

@@ -1,0 +1,23 @@
+# all.yml
+#   Run all server config playbooks
+#
+# Details:
+# - server: configure server for ansible, runs on all
+# - common: configure server with common packages and security, runs on all
+# - db: configure database, runs on DB group
+# - app: configure server to receive canvas app, runs on APP group
+# - prepare_deploy: prepare server for capistrano deployment, runs on APP group
+# - web_server: Install nginx and passenger, configure firewall, runs on APP group
+
+- import_playbook: 1_server.yml
+- import_playbook: 2_security.yml
+- import_playbook: 3_db.yml
+- import_playbook: 4_redis.yml
+- import_playbook: 5_ruby_env.yml
+- import_playbook: 6_prepare_deploy.yml
+- import_playbook: 7_web_server.yml
+# - install_certs, not used actually
+
+# These other playbooks should be run individually after first deployment:
+# populate_db
+# after_deploy

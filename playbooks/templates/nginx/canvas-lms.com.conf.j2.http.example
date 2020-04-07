@@ -1,0 +1,50 @@
+###
+# Canvas - HTTP access
+# only use this file if you Canvas LMS will be behind a https proxy and you don't want/need to protect proxy <-> canvas lms communications with SSL
+###
+
+# HTTPS Server
+server {
+  listen 80; # comment if app is using ssl
+  server_name {{ app_domain }};
+
+  ###
+  # Server configs
+  ###
+
+  error_log /var/log/nginx/{{ app_domain }}.error.log warn;
+
+  # IP filter:
+  # allow ip/32;
+  # allow ip/16;
+  # deny all;
+
+  ###
+  # Passenger / Rails configs
+  ###
+
+  passenger_enabled on;
+  passenger_min_instances 3;
+  passenger_friendly_error_pages on;
+  # passenger_ruby /usr/local/rvm/gems/ruby-2.1.5/wrappers/ruby;
+
+  rails_env production; # replace with your environment (staging/production)
+
+  location / {
+    proxy_cache canvas;
+    proxy_cache_valid 301 404 1m;
+    proxy_cache_valid any 15s;
+    proxy_cache_min_uses 16;
+
+    root {{ app_dir }}/current/public;
+  }
+
+  location ^~ /assets/ {
+    gzip_static on;
+    expires max;
+    add_header Cache-Control public;
+  }
+}
+
+passenger_pre_start http://{{ app_domain }}/;
+

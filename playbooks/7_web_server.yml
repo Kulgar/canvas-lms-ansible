@@ -1,0 +1,212 @@
+# 7_web_server.yml
+#   Install passenger & NGinx
+#
+# Details:
+# - Install NTP
+# - Install passenger and nginx
+# - Configure open file limits
+# - Copy nginx and passenger templates
+# - Add virtual host
+# - Remove default virtual host
+# - Configure firewall
+
+- name: NTP
+  hosts: app
+  become: yes
+
+  tasks:
+    - name: Install ntp
+      apt:
+        name: ntp
+        state: present
+
+    - name: Start ntp
+      service:
+        name: ntp
+        state: started
+        enabled: yes
+
+# from https://www.phusionpassenger.com/library/install/nginx/install/oss/bionic/
+- name: Install passenger and nginx
+  hosts: app
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      tags:
+        - update-packages
+      apt: update_cache=yes upgrade=safe
+
+    - name: Install Nginx
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+          - nginx
+
+    - name: Install dirmngr gnupg packages
+      tags:
+        - update-packages
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - dirmngr
+          - gnupg
+
+    - name: Add passenger keys
+      tags:
+        - update-packages
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 561F9B9CAC40B2F7
+
+    - name: Install apt-transport-https ca-certificates packages
+      tags:
+        - update-packages
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - apt-transport-https
+          - ca-certificates
+
+    - name: Add Passenger APT repo
+      apt_repository:
+        repo: '{{ item }}'
+        state: present
+        filename: passenger
+      with_items:
+        - "deb https://oss-binaries.phusionpassenger.com/apt/passenger {{ ansible_distribution_release }} main"
+
+    - name: Update apt cache
+      tags:
+        - update-packages
+      apt: update_cache=yes upgrade=safe
+
+    - name: Install passenger module
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+          - libnginx-mod-http-passenger
+
+    - name: Ensure config files are in place
+      file:
+        src: "/usr/share/nginx/modules-available/mod-http-passenger.load"
+        dest: "/etc/nginx/modules-enabled/50-mod-http-passenger.conf"
+        state: link
+
+- name: Configure open file limits
+  hosts: app
+  become: yes
+
+  tasks:
+    - name: Modify soft limits
+      pam_limits:
+        domain: "{{ item }}"
+        limit_type: soft
+        limit_item: nofile
+        value: 100000
+      with_items:
+        - www-data
+        - "{{ app_service_account }}"
+        - "{{ server_admin_account }}"
+
+    - name: Modify hard limits
+      pam_limits:
+        domain: "{{ item }}"
+        limit_type: hard
+        limit_item: nofile
+        value: 200000
+      with_items:
+        - www-data
+        - "{{ app_service_account }}"
+        - "{{ server_admin_account }}"
+
+- name: Configure nginx & passenger
+  hosts: app
+  become: yes
+
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted
+      become: true
+      become_method: sudo
+
+  tasks:
+    - name: Make sure apache related packages are removed
+      tags: nginx
+      apt: name="{{ packages }}" state=absent purge=yes
+      vars:
+        packages:
+        - apache2
+        - apache2-utils
+
+    - name: Copy Nginx configuration
+      tags:
+        - 'update-nginx-config'
+      template:
+        src: templates/nginx/nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+      notify: restart nginx
+
+    - name: Create Proxy cache folder
+      tags:
+        - 'update-nginx-config'
+      file:
+        state: directory
+        dest: /var/cache/nginx
+        owner: "{{ nginx_user }}"
+      notify: restart nginx
+
+    - name: Copy proxy cache configuration
+      tags:
+        - 'update-nginx-config'
+      template:
+        src: templates/nginx/proxy.conf
+        dest: /etc/nginx/conf.d/proxy.conf
+      notify: restart nginx
+
+    - name: Configure app virtual host
+      template:
+        src: "templates/nginx/sites-enabled/{{ app_domain }}.conf.j2"
+        dest: "/etc/nginx/sites-available/{{ app_domain }}.conf"
+      tags:
+        - 'update-app-config'
+        - 'update-nginx-config'
+      notify: restart nginx
+
+    - name: Ensure virtual host is enabled
+      file:
+        src: "/etc/nginx/sites-available/{{ app_domain }}.conf"
+        dest: "/etc/nginx/sites-enabled/{{ app_domain }}.conf"
+        state: link
+      tags:
+        - 'update-app-config'
+        - 'update-nginx-config'
+      notify: restart nginx
+
+    - name: Ensure default virtual host is removed
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: restart nginx
+
+    - name: Allow http
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+      when: setup_ufw
+
+    - name: Allow https
+      ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+      when: setup_ufw

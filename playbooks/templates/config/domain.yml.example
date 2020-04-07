@@ -1,0 +1,13 @@
+production:
+  domain: "{{ app_domain }}"
+  # whether this instance of canvas is served over ssl (https) or not
+  # defaults to true for production, false for test/development
+  ssl: true
+  # files_domain: "canvasfiles.example.com"
+
+staging:
+  domain: "{{ app_domain }}"
+  # whether this instance of canvas is served over ssl (https) or not
+  # defaults to true for production, false for test/development
+  ssl: true
+  # files_domain: "canvasfiles.example.com"

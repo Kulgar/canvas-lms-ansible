@@ -1,0 +1,32 @@
+# 4_redis.yml
+#   Configure redis
+#
+# Details:
+# - Install redis
+
+###
+# Redis install for caching
+###
+
+# You can install redis on whatever server you want
+# you could use your db server for instance
+# we set app here for convenience
+
+- name: Installing Redis
+  hosts: app
+  become: yes
+
+  tasks:
+    - name: Create Redis user
+      user:
+        name: "redis"
+        state: present
+
+- name: Install and configure Redis
+  hosts: app
+  become: yes
+
+  vars:
+    - redis_bind: localhost
+  roles:
+    - ansible-redis

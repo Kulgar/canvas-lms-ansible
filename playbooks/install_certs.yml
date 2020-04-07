@@ -1,0 +1,32 @@
+# install_certs.yml
+#   Run all server config playbooks
+#
+# Details:
+# - Install SSL certs for canvas
+
+- name: Install certificates
+  hosts: app
+  become: yes
+
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted
+      become: true
+      become_method: sudo
+
+  tasks:
+    - name: Copy key
+      template:
+        src: templates/certs/{{ item }}
+        dest: /etc/ssl/private/{{ item }}
+      with_items:
+        - "{{ app_domain }}"
+      notify: restart nginx
+
+    - name: Copy certs
+      template:
+        src: templates/certs/{{ item }}
+        dest: /etc/ssl/certs/{{ item }}
+      with_items:
+        - "{{ app_domain }}"
+      notify: restart nginx

@@ -1,0 +1,21 @@
+[Unit]
+Description=Canvas Delayed jobs
+After=network.target
+
+[Service]
+Type=simple
+# Preferably configure a non-privileged user
+User=canvas
+
+# Specify the path to your puma application root
+WorkingDirectory={{ app_dir }}/current
+
+# Setting App Environment variables here
+Environment=RAILS_ENV=production
+
+# The command to start service
+ExecStart=/bin/bash -lc 'bundle exec ./canvas_init run'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

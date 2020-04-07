@@ -1,0 +1,7 @@
+# group_vars/production
+#   shared settings for production group
+#
+# This software is public domain.
+#
+
+app_domain: "prod.canvas-lms.com"

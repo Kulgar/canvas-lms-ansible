@@ -1,0 +1,17 @@
+# app group: server(s) where the Canvas LMS app will be deployed
+[app]
+
+# db group: server where the postgreSQL database must be installed
+# leave blank if you don't need to install a postgreSQL database (if you are using an existing DB for instance)
+# can be the same server as app
+[db]
+
+# staging group: if you have a staging server, this will allow you to specify variables for this environment
+# Please use a different server than production
+[staging]
+
+
+# production group: same as staging but for production
+[production]
+
+

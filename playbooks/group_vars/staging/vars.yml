@@ -1,0 +1,7 @@
+# group_vars/staging
+#   shared settings for staging group
+#
+# This software is public domain.
+#
+
+app_domain: "staging.canvas-lms.com"
